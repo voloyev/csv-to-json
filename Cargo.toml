@@ -3,6 +3,14 @@ name = "csv_to_json"
 version = "0.1.0"
 authors = ["arebel-mac"]
 
+[lib]
+name = "csv_to_json_converter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "csv_to_json_bin"
+path="src/main.rs"
+
 [dependencies]
 serde_json = "1.0"
 csv = "0.15.0"

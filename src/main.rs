@@ -2,6 +2,7 @@ extern crate csv;
 extern crate getopts;
 #[macro_use]
 extern crate json;
+extern crate csv_to_json_converter;
 
 use std::env;
 use std::fs::File;
@@ -11,12 +12,14 @@ use json::JsonValue;
 use getopts::Options;
 use getopts::Matches;
 
-struct Args {
-    input: String,
-    output: Option<String>,
-    is_nulled: bool,
-    is_keyed: bool,
-}
+use csv_to_json_converter::update_json_with_record_row;
+use csv_to_json_converter::Args;
+// struct Args {
+//     input: String,
+//     output: Option<String>,
+//     is_nulled: bool,
+//     is_keyed: bool,
+// }
 
 fn get_file_names(input: String, output: Option<String>) -> (String, String) {
     if !input.contains(".csv") {
@@ -88,49 +91,6 @@ fn get_args(arg_strings: &[String]) -> Option<Args> {
         is_nulled,
         is_keyed,
     })
-}
-
-fn update_json_with_record_row(
-    mut json: JsonValue,
-    record: Vec<String>,
-    headers: &[String],
-    args: &Args,
-) -> JsonValue {
-    let record: Vec<String> = record;
-
-    let mut element = object!{};
-    for index in 0..headers.len() {
-        if index >= record.len() {
-            break;
-        }
-
-        let header: &str = &headers[index][..];
-        let value: &str = &record[index];
-
-        if !args.is_keyed {
-            if value.is_empty() && args.is_nulled {
-                element[header] = json::Null;
-            } else {
-                element[header] = value.into();
-            }
-        } else {
-            let key: &str = &record[0];
-            if index == 0 {
-                json[key] = object!{};
-            } else {
-                if value.is_empty() && args.is_nulled {
-                    json[key][header] = json::Null;
-                } else {
-                    json[key][header] = value.into();
-                }
-            }
-        }
-    }
-    if !args.is_keyed {
-        json.push(element.clone())
-            .expect("Error pushing element to json");
-    }
-    json
 }
 
 fn print_usage(program: &str, opts: &Options) {
