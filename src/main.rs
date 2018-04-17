@@ -1,25 +1,15 @@
-extern crate csv;
 extern crate getopts;
-#[macro_use]
-extern crate json;
 extern crate csv_to_json_converter;
 
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use csv::Reader;
-use json::JsonValue;
+
 use getopts::Options;
 use getopts::Matches;
 
-use csv_to_json_converter::update_json_with_record_row;
+use csv_to_json_converter::parse_csv;
 use csv_to_json_converter::Args;
-// struct Args {
-//     input: String,
-//     output: Option<String>,
-//     is_nulled: bool,
-//     is_keyed: bool,
-// }
 
 fn get_file_names(input: String, output: Option<String>) -> (String, String) {
     if !input.contains(".csv") {
@@ -119,23 +109,8 @@ fn main() {
     src_file
         .read_to_string(&mut contents)
         .expect("Something went wrong reading the file");
-
-    let mut json: JsonValue;
-    if !args.is_keyed {
-        json = array![];
-    } else {
-        json = object!{};
-    }
-
-    let mut rdr: Reader<&[u8]> = Reader::from_reader(contents.as_bytes());
-    let headers: Vec<String> = rdr.headers()
-        .expect("There was an error reading the headers.");
-
-    let mut records_iter = rdr.records();
-
-    while let Some(record) = records_iter.next() {
-        json = update_json_with_record_row(json, record.unwrap(), &headers, &args);
-    }
+  
+    let json = parse_csv(&mut contents, &args);
 
     let mut dest_file: File = File::create(&dest_file_name)
         .expect(&format!("Error creating the file: {}", dest_file_name)[..]);
@@ -178,162 +153,7 @@ mod tests {
         assert_eq!(args.is_nulled, true);
     }
 
-    #[test]
-    fn test_is_not_keyed() {
-        let mut json: super::JsonValue = array![];
-        let mut args: super::Args = super::Args {
-            input: String::from("input"),
-            output: Some(String::from("output")),
-            is_nulled: false,
-            is_keyed: false,
-        };
-        let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
-        let headers: Vec<String> = vec![
-            String::from("header_a"),
-            String::from("header_b"),
-            String::from("header_c"),
-        ];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            array![
-                object!{
-                    "header_a" => "a",
-                    "header_b" => "",
-                    "header_c" => "c"
-                }
-            ].to_string()
-        );
-
-        args.is_nulled = true;
-        let mut json: super::JsonValue = array![];
-        let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            array![
-                object!{
-                    "header_a" => "a",
-                    "header_b" => super::json::Null,
-                    "header_c" => "c"
-                }
-            ].to_string()
-        );
-    }
-
-    #[test]
-    fn test_is_nulled() {
-        let mut json: super::JsonValue = object!{};
-        let mut args: super::Args = super::Args {
-            input: String::from("input"),
-            output: Some(String::from("output")),
-            is_nulled: false,
-            is_keyed: true,
-        };
-        let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
-        let headers: Vec<String> = vec![
-            String::from("header_a"),
-            String::from("header_b"),
-            String::from("header_c"),
-        ];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            object!{
-                "a" => object!{
-                    "header_b" => "",
-                    "header_c" => "c"
-                }
-            }.to_string()
-        );
-
-        args.is_nulled = true;
-
-        let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            object!{
-                "a" => object!{
-                    "header_b" => super::json::Null,
-                    "header_c" => "c"
-                }
-            }.to_string()
-        );
-    }
-
-    #[test]
-    fn updating_json() {
-        let mut json: super::JsonValue = object!{};
-        let args: super::Args = super::Args {
-            input: String::from("input"),
-            output: Some(String::from("output")),
-            is_nulled: false,
-            is_keyed: true,
-        };
-        let record: Vec<String> = vec![String::from("a"), String::from("b"), String::from("c")];
-        let headers: Vec<String> = vec![
-            String::from("header_a"),
-            String::from("header_b"),
-            String::from("header_c"),
-        ];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            object!{
-                "a" => object!{
-                    "header_b" => "b",
-                    "header_c" => "c"
-                }
-            }.to_string()
-        );
-
-        // If there is less column on the record
-        let mut json: super::JsonValue = object!{};
-        let record: Vec<String> = vec![String::from("a"), String::from("b"), String::from("c")];
-        let headers: Vec<String> = vec![String::from("header_a"), String::from("header_b")];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            object!{
-                "a" => object!{
-                    "header_b" => "b"
-                }
-            }.to_string()
-        );
-
-        // If there is one column on the record.
-        let mut json: super::JsonValue = object!{};
-        let record: Vec<String> = vec![String::from("a"), String::from("b"), String::from("c")];
-        let headers: Vec<String> = vec![String::from("header_a")];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            object!{
-                "a" => object!{
-                }
-            }.to_string()
-        );
-
-        // If there are more record columns than headers
-        let mut json: super::JsonValue = object!{};
-        let record: Vec<String> = vec![String::from("a"), String::from("b")];
-        let headers: Vec<String> = vec![
-            String::from("header_a"),
-            String::from("header_b"),
-            String::from("header_c"),
-        ];
-        json = super::update_json_with_record_row(json, record, &headers, &args);
-        assert_eq!(
-            json.to_string(),
-            object!{
-                "a" => object!{
-                    "header_b" => "b"
-                }
-            }.to_string()
-        );
-    }
-
+ 
     #[test]
     fn file_names() {
         let (src, dest) =
