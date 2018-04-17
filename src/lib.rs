@@ -4,6 +4,12 @@ extern crate json;
 
 use csv::Reader;
 use json::JsonValue;
+// FIXME
+// work on interface for lib
+// args as part of it
+// input
+// output
+// parse()
 
 pub struct Args {
     pub input: String,
