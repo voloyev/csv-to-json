@@ -11,18 +11,12 @@ use json::JsonValue;
 // output
 // parse()
 
-pub struct Args {
-    pub input: String,
-    pub output: Option<String>,
-    pub is_nulled: bool,
-    pub is_keyed: bool,
-}
-
 fn update_json_with_record_row(
     mut json: JsonValue,
     record: Vec<String>,
     headers: &[String],
-    args: &Args,
+    is_keyed: bool,
+    is_nulled: bool
 ) -> JsonValue {
     let record: Vec<String> = record;
 
@@ -35,8 +29,8 @@ fn update_json_with_record_row(
         let header: &str = &headers[index][..];
         let value: &str = &record[index];
 
-        if !args.is_keyed {
-            if value.is_empty() && args.is_nulled {
+        if !is_keyed {
+            if value.is_empty() && is_nulled {
                 element[header] = json::Null;
             } else {
                 element[header] = value.into();
@@ -46,7 +40,7 @@ fn update_json_with_record_row(
             if index == 0 {
                 json[key] = object!{};
             } else {
-                if value.is_empty() && args.is_nulled {
+                if value.is_empty() && is_nulled {
                     json[key][header] = json::Null;
                 } else {
                     json[key][header] = value.into();
@@ -54,17 +48,16 @@ fn update_json_with_record_row(
             }
         }
     }
-    if !args.is_keyed {
+    if !is_keyed {
         json.push(element.clone())
             .expect("Error pushing element to json");
     }
     json
 }
 
-
-pub fn parse_csv(contents: &mut String, args: &Args) -> JsonValue {
+pub fn csv_to_json(contents: &mut String, is_keyed: bool, is_nulled: bool) -> JsonValue {
     let mut json: JsonValue;
-    if !args.is_keyed {
+    if !is_keyed {
         json = array![];
     } else {
         json = object!{};
@@ -77,7 +70,7 @@ pub fn parse_csv(contents: &mut String, args: &Args) -> JsonValue {
     let mut records_iter = rdr.records();
 
     while let Some(record) = records_iter.next() {
-        json = update_json_with_record_row(json, record.unwrap(), &headers, &args);
+        json = update_json_with_record_row(json, record.unwrap(), &headers, is_keyed, is_nulled);
     }
 
     json
@@ -87,19 +80,19 @@ pub fn parse_csv(contents: &mut String, args: &Args) -> JsonValue {
 #[test]
 fn test_is_not_keyed() {
     let mut json: JsonValue = array![];
-    let mut args: Args = Args {
-        input: String::from("input"),
-        output: Some(String::from("output")),
-        is_nulled: false,
-        is_keyed: false,
-    };
+    // let mut args: Args = Args {
+    //     input: String::from("input"),
+    //     output: Some(String::from("output")),
+    //     is_keyed: false,
+    //     is_nulled: false,
+    // };
     let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
     let headers: Vec<String> = vec![
         String::from("header_a"),
         String::from("header_b"),
         String::from("header_c"),
     ];
-    json = update_json_with_record_row(json, record, &headers, &args);
+    json = update_json_with_record_row(json, record, &headers, false, false);
     assert_eq!(
         json.to_string(),
         array![
@@ -111,10 +104,10 @@ fn test_is_not_keyed() {
         ].to_string()
     );
 
-    args.is_nulled = true;
+    // args.is_nulled = true;
     let mut json: JsonValue = array![];
     let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
-    json = update_json_with_record_row(json, record, &headers, &args);
+    json = update_json_with_record_row(json, record, &headers, false, true);
     assert_eq!(
         json.to_string(),
         array![
@@ -130,19 +123,19 @@ fn test_is_not_keyed() {
 #[test]
 fn test_is_nulled() {
     let mut json: JsonValue = object!{};
-    let mut args: Args = Args {
-        input: String::from("input"),
-        output: Some(String::from("output")),
-        is_nulled: false,
-        is_keyed: true,
-    };
+    // let mut args: Args = Args {
+    //     input: String::from("input"),
+    //     output: Some(String::from("output")),
+    //     is_keyed: true,
+    //     is_nulled: false,
+    // };
     let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
     let headers: Vec<String> = vec![
         String::from("header_a"),
         String::from("header_b"),
         String::from("header_c"),
     ];
-    json = update_json_with_record_row(json, record, &headers, &args);
+    json = update_json_with_record_row(json, record, &headers, true, false);
     assert_eq!(
         json.to_string(),
         object!{
@@ -153,10 +146,10 @@ fn test_is_nulled() {
         }.to_string()
     );
 
-    args.is_nulled = true;
+    // args.is_nulled = true;
 
     let record: Vec<String> = vec![String::from("a"), String::from(""), String::from("c")];
-    json = update_json_with_record_row(json, record, &headers, &args);
+    json = update_json_with_record_row(json, record, &headers, true, true);
     assert_eq!(
         json.to_string(),
         object!{
@@ -174,19 +167,19 @@ mod tests {
     #[test]
     fn updating_json() {
         let mut json: JsonValue = object!{};
-        let args: Args = Args {
-            input: String::from("input"),
-            output: Some(String::from("output")),
-            is_nulled: false,
-            is_keyed: true,
-        };
+        // let args: Args = Args {
+        //     input: String::from("input"),
+        //     output: Some(String::from("output")),
+        //     is_keyed: true,
+        //     is_nulled: false,
+        // };
         let record: Vec<String> = vec![String::from("a"), String::from("b"), String::from("c")];
         let headers: Vec<String> = vec![
             String::from("header_a"),
             String::from("header_b"),
             String::from("header_c"),
         ];
-        json = update_json_with_record_row(json, record, &headers, &args);
+        json = update_json_with_record_row(json, record, &headers, true, false);
         assert_eq!(
             json.to_string(),
             object!{
@@ -201,7 +194,7 @@ mod tests {
         let mut json: JsonValue = object!{};
         let record: Vec<String> = vec![String::from("a"), String::from("b"), String::from("c")];
         let headers: Vec<String> = vec![String::from("header_a"), String::from("header_b")];
-        json = update_json_with_record_row(json, record, &headers, &args);
+        json = update_json_with_record_row(json, record, &headers, true, false);
         assert_eq!(
             json.to_string(),
             object!{
@@ -215,7 +208,7 @@ mod tests {
         let mut json: JsonValue = object!{};
         let record: Vec<String> = vec![String::from("a"), String::from("b"), String::from("c")];
         let headers: Vec<String> = vec![String::from("header_a")];
-        json = update_json_with_record_row(json, record, &headers, &args);
+        json = update_json_with_record_row(json, record, &headers, true, false);
         assert_eq!(
             json.to_string(),
             object!{
@@ -232,7 +225,7 @@ mod tests {
             String::from("header_b"),
             String::from("header_c"),
         ];
-        json = update_json_with_record_row(json, record, &headers, &args);
+        json = update_json_with_record_row(json, record, &headers, true, false);
         assert_eq!(
             json.to_string(),
             object!{

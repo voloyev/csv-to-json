@@ -8,8 +8,15 @@ use std::io::prelude::*;
 use getopts::Options;
 use getopts::Matches;
 
-use csv_to_json_converter::parse_csv;
-use csv_to_json_converter::Args;
+use csv_to_json_converter::csv_to_json;
+//use csv_to_json_converter::Args;
+#[derive(Debug)]
+struct Args {
+     input: String,
+     output: Option<String>,
+     is_nulled: bool,
+     is_keyed: bool,
+}
 
 fn get_file_names(input: String, output: Option<String>) -> (String, String) {
     if !input.contains(".csv") {
@@ -96,6 +103,7 @@ fn main() {
             return;
         }
     };
+    println!("{:?}", args);
 
     let (src_file_name, dest_file_name) =
         get_file_names(args.input.to_owned(), args.output.to_owned());
@@ -110,7 +118,7 @@ fn main() {
         .read_to_string(&mut contents)
         .expect("Something went wrong reading the file");
   
-    let json = parse_csv(&mut contents, &args);
+    let json = csv_to_json(&mut contents, args.is_keyed, args.is_nulled);
 
     let mut dest_file: File = File::create(&dest_file_name)
         .expect(&format!("Error creating the file: {}", dest_file_name)[..]);
